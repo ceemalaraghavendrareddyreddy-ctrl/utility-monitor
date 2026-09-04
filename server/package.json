@@ -1,0 +1,22 @@
+{
+  "name": "utility-monitoring-server",
+  "version": "0.1.0",
+  "description": "Backend API + simulated gateway for the community utility monitoring system",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "nodemailer": "^9.1.1"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
+  }
+}

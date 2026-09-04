@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Community Utility Monitor</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Utility Monitor" />
+</head>
+<body>
+  <div id="loginScreen" class="login-screen">
+    <form id="loginForm" class="login-card">
+      <h1>Utility Monitor</h1>
+      <p class="login-sub">Sign in to view your portfolio.</p>
+      <label>
+        Username
+        <input
+          type="text"
+          id="loginUsername"
+          autocomplete="username"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          required
+        />
+      </label>
+      <label>
+        Password
+        <input type="password" id="loginPassword" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Sign in</button>
+      <p class="login-error" id="loginError" hidden></p>
+    </form>
+  </div>
+
+  <div id="appShell" hidden>
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1>Utility Monitor</h1>
+        <select id="customerSelect" class="customer-select" aria-label="Portfolio"></select>
+      </div>
+      <div class="topbar-right">
+        <button id="installBtn" class="install-btn" hidden>Install app</button>
+        <span class="username" id="usernameLabel"></span>
+        <button id="logoutBtn" class="logout-btn">Sign out</button>
+        <div class="status" id="status">Connecting…</div>
+      </div>
+    </header>
+
+    <section class="totals" id="totals">
+      <div class="total-card">
+        <span class="total-label">Energy today</span>
+        <span class="total-value" id="totalEnergy">–</span>
+        <span class="total-unit">kWh</span>
+      </div>
+      <div class="total-card">
+        <span class="total-label">Water today</span>
+        <span class="total-value" id="totalWater">–</span>
+        <span class="total-unit">L</span>
+      </div>
+      <div class="total-card" id="alertCard">
+        <span class="total-label">Active alerts</span>
+        <span class="total-value" id="totalAlerts">–</span>
+        <span class="total-unit">buildings</span>
+      </div>
+    </section>
+
+    <section class="alert-settings" id="alertSettings">
+      <label for="alertEmailInput">Instant alerts go to</label>
+      <input type="email" id="alertEmailInput" placeholder="ops@example.com" />
+      <button id="alertEmailSave">Save</button>
+      <span class="alert-settings-status" id="alertEmailStatus"></span>
+    </section>
+
+    <main class="grid" id="buildingGrid">
+      <!-- building cards injected by app.js -->
+    </main>
+
+    <footer class="footnote">
+      Demo mode — readings are simulated. Connect a real gateway to
+      <code>POST /api/readings</code> to replace sample data.
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
