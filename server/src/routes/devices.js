@@ -1,21 +1,33 @@
 const express = require('express');
 const db = require('../db');
-const { resolveCustomerId } = require('../customerScope');
+const { resolveCustomerId, resolveBuildingRestriction } = require('../customerScope');
+const { requireWrite } = require('../authMiddleware');
 
 const router = express.Router();
 
 // GET /api/devices?customer_id= — remotely controllable IoT devices (pumps,
-// valves, ...) for one customer's buildings
+// valves, ...) for one customer's buildings (or just one building, for a
+// manager scoped to it)
 router.get('/', (req, res) => {
   const customerId = resolveCustomerId(req);
-  const rows = db
-    .prepare(
-      `SELECT d.id, d.building_id, b.name AS building_name, d.name, d.device_type, d.status, d.updated_at
-       FROM devices d JOIN buildings b ON b.id = d.building_id
-       WHERE b.customer_id = ?
-       ORDER BY d.building_id, d.id`
-    )
-    .all(customerId);
+  const buildingRestriction = resolveBuildingRestriction(req);
+  const rows = buildingRestriction
+    ? db
+        .prepare(
+          `SELECT d.id, d.building_id, b.name AS building_name, d.name, d.device_type, d.status, d.updated_at
+           FROM devices d JOIN buildings b ON b.id = d.building_id
+           WHERE b.customer_id = ? AND b.id = ?
+           ORDER BY d.building_id, d.id`
+        )
+        .all(customerId, buildingRestriction)
+    : db
+        .prepare(
+          `SELECT d.id, d.building_id, b.name AS building_name, d.name, d.device_type, d.status, d.updated_at
+           FROM devices d JOIN buildings b ON b.id = d.building_id
+           WHERE b.customer_id = ?
+           ORDER BY d.building_id, d.id`
+        )
+        .all(customerId);
 
   res.json(
     rows.map((r) => ({
@@ -35,7 +47,7 @@ router.get('/', (req, res) => {
 // BMS/IoT gateway would subscribe to (MQTT publish, vendor API call, etc.)
 // to actually drive the physical pump/valve; here it also feeds the tank
 // simulator directly, so toggling it off visibly stops that tank refilling.
-router.post('/:id/command', (req, res) => {
+router.post('/:id/command', requireWrite, (req, res) => {
   const deviceId = Number(req.params.id);
   const { action } = req.body || {};
 
@@ -51,6 +63,9 @@ router.post('/:id/command', (req, res) => {
   if (!device) return res.status(404).json({ error: 'device not found' });
   if (req.user.role !== 'admin' && device.customer_id !== req.user.customerId) {
     return res.status(404).json({ error: 'device not found' }); // 404, not 403 — don't reveal it exists
+  }
+  if (req.user.role === 'manager' && device.building_id !== req.user.buildingId) {
+    return res.status(404).json({ error: 'device not found' });
   }
 
   const now = new Date().toISOString();

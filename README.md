@@ -21,15 +21,16 @@ utility-monitoring/
   server/           Express API + SQLite storage + reading simulator
     src/
       db.js               Schema (customers, users, buildings, readings, devices, device_commands) + seeds
-      auth.js             Password hashing (scrypt) + in-memory session store
-      authMiddleware.js   requireAuth (session cookie) / requireIngestKey (API key)
+      auth.js             Password hashing (scrypt) + DB-backed session store (sessions table)
+      authMiddleware.js   requireAuth (session cookie) / requireIngestKey (API key) / requireAdmin (role check)
       customerScope.js    Resolves which customer a request is scoped to, from the session
       mailer.js           SMTP wrapper (falls back to console logging if unconfigured)
       alertEngine.js       Polls for alert transitions and emails each customer's contact
       simulator.js        Generates energy/water/tank readings every 30s (demo mode)
       server.js           App entry point, serves the API and the web/ folder
-      routes/             /api/auth, /api/customers, /api/buildings, /api/readings, /api/summary, /api/tanks, /api/devices
+      routes/             /api/auth, /api/customers, /api/buildings, /api/readings, /api/summary, /api/tanks, /api/devices, /api/users
   web/              Static dashboard (no build step) — index.html/app.js/styles.css
+                    Admin onboarding page — admin.html/admin.js/admin.css
   tools/            gen-icons.js — regenerates the PWA icon set
 ```
 
@@ -52,22 +53,35 @@ shown to the admin account — a regular customer login only ever has the one
 portfolio, so there's nothing to switch).
 
 **Auth:** every dashboard-facing endpoint requires a logged-in session
-(httpOnly cookie). A non-admin user is hard-locked server-side to their own
-`customer_id` — `?customer_id=` in the URL is ignored for them, verified by
-actually trying to spoof it (see `customerScope.js`). Only the `admin` role
-can pass `?customer_id=` to view any portfolio, for internal ops use.
-Sessions live in memory (a `Map` in `auth.js`), so **they reset on every
-server restart** and won't survive multiple server instances — fine for a
-demo, not for production (see "Next steps"). Three demo accounts are seeded
-on first run and printed to the server console:
+(httpOnly cookie). Four roles, two independent axes — scope and write
+access:
 
-| Username | Password | Role | Scope |
-|---|---|---|---|
-| `sunrise` | `sunrise123` | owner | Sunrise Gated Community only |
-| `oceanview` | `oceanview123` | owner | Oceanview Towers only |
-| `admin` | `admin123` | admin | any portfolio |
+| Role | Scope | Write access |
+|---|---|---|
+| `admin` | every portfolio | full |
+| `owner` | one customer's whole portfolio | full |
+| `manager` | one building only | full, on that building |
+| `resident` | one customer's whole portfolio | read-only |
 
-Rotate or remove these before this is ever reachable beyond `localhost`.
+A non-`admin` user is hard-locked server-side to their own `customer_id` —
+`?customer_id=` in the URL is ignored for them, verified by actually trying
+to spoof it (see `customerScope.js`). A `manager`'s `customer_id` is
+derived from their one `building_id` and further narrowed to just that
+building on every read (`resolveBuildingRestriction()`, same file). A
+`resident` gets `403` from `requireWrite` (`authMiddleware.js`) on every
+write endpoint — device control, threshold tuning, alert-email — regardless
+of customer match. Only the `admin` role can pass `?customer_id=` to view
+any portfolio, for internal ops use.
+Sessions are stored in the `sessions` table in SQLite (see `auth.js`), so
+they **survive a server restart** and would be shared correctly across
+multiple instances pointed at the same DB file. Expired rows are cleaned up
+lazily (on lookup) and by an hourly sweep started in `server.js`. Three demo
+accounts are seeded on first run, with a **randomly generated password per
+deployment** printed once to the server console — see "Running it" below to
+find them; there's no fixed password to write down here.
+
+Rotate or remove these accounts before this is ever reachable beyond
+`localhost`.
 
 ## Running it
 
@@ -78,7 +92,9 @@ npm start
 ```
 
 Then open **http://localhost:3000** and sign in with one of the demo
-accounts in the "Auth" section above. The server starts in demo mode: it
+accounts — check your terminal for the "Seeded demo login accounts" block
+`npm start` printed (see "Auth" above; passwords are randomly generated per
+deployment, not fixed). The server starts in demo mode: it
 backfills 48 hours of simulated readings on first run, then generates new
 readings (energy, water flow, and tank level) per building every 30 seconds
 so the dashboard updates live.
@@ -145,8 +161,7 @@ this app only needs the one container. When it asks to deploy immediately,
 you can say no and run `fly deploy` yourself once ready, or say yes.
 
 **Demo account passwords are randomly generated on first boot** (see
-"Auth"), not the `sunrise123`-style ones from local dev — check the app's
-logs right after the first deploy to get them:
+"Auth") — check the app's logs right after the first deploy to get them:
 
 ```bash
 fly logs
@@ -185,6 +200,9 @@ fly secrets set SMTP_HOST=smtp.yourprovider.com SMTP_PORT=587 \
   simulated end-to-end (toggling it off visibly stops that tank refilling)
 - **Portfolio switcher** — dropdown in the header swaps between customer
   portfolios; selection persists per-browser via `localStorage`
+- **Admin onboarding page** (`/admin.html`) — visible via an "Admin" link in
+  the header for admin logins only: add customers/buildings/logins and tune
+  a building's thresholds without touching the database or the API by hand
 - Community-wide totals + active-alert count bar at the top (scoped to the
   selected portfolio)
 - Responsive layout — works on phone or desktop browser
@@ -202,8 +220,14 @@ fly secrets set SMTP_HOST=smtp.yourprovider.com SMTP_PORT=587 \
 | `POST /api/auth/logout` | — | Clears the session |
 | `GET /api/auth/me` | session | Who's currently logged in |
 | `GET /api/customers` | session | Your portfolio (or all, if admin) — powers the switcher |
+| `POST /api/customers` | **admin** | Onboard a new customer: `{name, slug?, alert_email?}` — slug defaults to a slugified name |
 | `PATCH /api/customers/:id` | session | `{alert_email}` — set the "instant alert" recipient |
 | `GET /api/buildings?customer_id=` | session | Buildings with today's energy/water-flow totals and alert flags |
+| `POST /api/buildings` | **admin** | Onboard a building: `{customerId, name, energyThresholdKwh?, waterThresholdL?, tankLowThresholdPct?, tankCapacityL?}` — thresholds default to the seed-data values if omitted; also creates one "Tank Inlet Pump" device for it |
+| `PATCH /api/buildings/:id` | session | Tune name/thresholds/capacity — any subset of the `POST` body fields; admin edits any building, an owner only their own |
+| `GET /api/users?customer_id=` | **admin** | List login accounts (all, or one customer's) |
+| `POST /api/users` | **admin** | Onboard a login: `{username, role?, customerId?, buildingId?}` (`role` defaults to `"owner"`; `customerId` required for `owner`/`resident`, `buildingId` required for `manager` — its `customerId` is derived, not passed) — returns the generated password **once**, in this response only |
+| `DELETE /api/users/:id` | **admin** | Remove a login and immediately revoke its active sessions |
 | `GET /api/readings?building_id=&type=&hours=` | session | Raw history for a building/type (`energy`\|`water`\|`tank_level`) |
 | `POST /api/readings` | API key* | Ingest one reading `{building_id, reading_type, value, timestamp?}` — the seam a real gateway calls |
 | `GET /api/summary?customer_id=` | session | Community-wide totals and active alert count (usage + tank low-level + leak) |
@@ -212,10 +236,13 @@ fly secrets set SMTP_HOST=smtp.yourprovider.com SMTP_PORT=587 \
 | `POST /api/devices/:id/command` | session | Remote activation: `{action: "on"\|"off"}` |
 
 `?customer_id=` is only honored for the `admin` role — every other session
-is locked to its own customer regardless of what's passed. \* `POST
-/api/readings` authenticates with an `x-api-key` header (`INGEST_API_KEY`
-env var) instead of a session, since a real gateway can't do an interactive
-login; unset, it's left open for local demo convenience.
+is locked to its own customer regardless of what's passed. Endpoints marked
+**admin** return `403` for any non-admin session — this is the onboarding
+API described in "Next steps" below, deliberately kept out of the
+customer-facing dashboard. \* `POST /api/readings` authenticates with an
+`x-api-key` header (`INGEST_API_KEY` env var) instead of a session, since a
+real gateway can't do an interactive login; unset, it's left open for local
+demo convenience.
 
 ## Mapping to the RFP
 
@@ -234,11 +261,12 @@ login; unset, it's left open for local demo convenience.
 
 **To take this from prototype to what the RFP describes:**
 
-1. **Durable sessions** — auth is real (see "Auth" above) but sessions live
-   in an in-memory `Map`, so they're wiped on every server restart and
-   wouldn't be shared across multiple server instances. Move to a shared
-   store (Redis, or a `sessions` DB table) before running more than one
-   instance or expecting logins to survive a deploy.
+1. ~~**Durable sessions**~~ — done: sessions now live in a `sessions` table
+   in SQLite (see `auth.js`) instead of an in-memory `Map`, so logins survive
+   a server restart. This still assumes one server process sharing the one
+   SQLite file — if you later run multiple instances behind a load balancer,
+   move to Postgres or Redis for the sessions table (a `db.js`-only change,
+   same table shape).
 2. **SMS/push, not just email** — `alertEngine.js` currently only emails.
    Adding SMS (e.g. Twilio) or web push alongside it is a matter of a second
    notifier in the same edge-triggered loop, not a redesign.
@@ -246,11 +274,21 @@ login; unset, it's left open for local demo convenience.
    flips a status flag the simulator reads. For real hardware this needs a
    backend integration per device type: MQTT publish to a BMS, a vendor API
    call, or a relay controlled via a local gateway (Raspberry Pi/Node-RED).
-4. **Roles beyond owner/admin** — the original brief's open question
-   ("who needs access — just you, or building managers/residents too?") and
-   the RFP's "syndicate operations" both imply more granular roles (e.g.
-   read-only resident, building-manager-for-one-building) than today's
-   simple owner-sees-their-customer / admin-sees-everything split.
+4. ~~Roles beyond owner/admin~~ — done: two more roles answer the original
+   brief's open question ("who needs access — just you, or building
+   managers/residents too?"). **`manager`** is scoped to exactly one
+   building (`users.building_id`) with full read/write on it — sees only
+   that building everywhere (dashboard, `/api/buildings`, `/api/tanks`,
+   `/api/devices`, `/api/readings`, `/api/summary`), can toggle its device
+   and tune its thresholds, but can't onboard or touch the portfolio-wide
+   alert email. **`resident`** sees the whole customer portfolio like an
+   owner but is read-only — `requireWrite` (see `authMiddleware.js`) blocks
+   every write endpoint for it with `403`, and the dashboard doesn't render
+   clickable controls for one either. See `routes/users.js` for how each
+   role is created (a manager's `customerId` is derived from its
+   `buildingId`, not caller-supplied) and `customerScope.js`'s
+   `resolveBuildingRestriction()` for how the building scope is enforced
+   server-side on every read.
 5. **Native mobile app** — only worth it if the client specifically needs
    App Store/Play Store presence for branding/marketing. The PWA already
    covers "install to home screen, launches like an app, can request push
@@ -268,10 +306,18 @@ login; unset, it's left open for local demo convenience.
    ```bash
    DEMO_MODE=0 npm start
    ```
-8. Tune each building's thresholds (`energy_threshold_kwh`,
-   `water_threshold_l`, `tank_low_threshold_pct`) and `tank_capacity_l` in
-   the `buildings` table to real values once known.
-9. **Onboarding a new customer** today means inserting rows into
-   `customers`, `buildings`, and `users` directly (see the seed blocks in
-   `db.js` for the shape). An admin UI/API for that is worth building once
-   you're doing it more than a handful of times.
+8. ~~Tune each building's thresholds~~ — done: `PATCH /api/buildings/:id`
+   (see "API" above) sets `energy_threshold_kwh`, `water_threshold_l`,
+   `tank_low_threshold_pct`, and `tank_capacity_l` without touching the DB
+   directly. An admin can tune any building; an owner can tune their own.
+9. ~~Onboarding a new customer~~ — done, both as an API and a small UI on
+   top of it: `POST /api/customers` → `POST /api/buildings` (auto-creates
+   that building's inlet-pump device too) → `POST /api/users` (returns a
+   generated password **once**, in the response — there's no "forgot
+   password" flow yet, so losing it means deleting and recreating the
+   account via `DELETE /api/users/:id`). **`/admin.html`** wraps all three
+   in one page — sign in with an admin account (the main dashboard shows an
+   "Admin" link once you do) to add customers/buildings/logins and tune
+   thresholds without `curl`. It's intentionally plain (no framework, same
+   no-build-step approach as the main dashboard) — see `web/admin.html` /
+   `web/admin.js`.

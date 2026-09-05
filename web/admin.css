@@ -1,0 +1,189 @@
+/* Admin onboarding page — layered on top of styles.css (shares the login
+   screen, topbar, and CSS variables from the main dashboard) */
+
+.admin-back-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-left: 0.75rem;
+}
+
+.admin-back-link:hover {
+  color: var(--accent);
+}
+
+.admin-main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.admin-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+
+.admin-panel h2 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+}
+
+.admin-select-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.admin-select-label select {
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.admin-muted {
+  color: var(--muted);
+}
+
+.admin-inline-input {
+  width: 5.5rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.admin-save-btn,
+.admin-delete-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admin-save-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.admin-delete-btn:hover {
+  border-color: var(--alert-text);
+  color: var(--alert-text);
+}
+
+.admin-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.admin-form input,
+.admin-form select {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.admin-form input[type="number"] {
+  width: 8rem;
+}
+
+.admin-form button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.admin-form button:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 12px 1px var(--accent-glow);
+}
+
+.admin-status {
+  min-height: 1.1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+
+/* An author-stylesheet class selector's `display` beats the UA stylesheet's
+   `[hidden]` rule (same specificity, but author origin wins) — same issue
+   styles.css already documents for .login-screen. Without this, toggling
+   `.hidden = true` in admin.js would do nothing and the reveal box would
+   stay visible (with an empty password) before the first login is created. */
+.admin-password-reveal[hidden] {
+  display: none;
+}
+
+.admin-password-reveal {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.admin-password-reveal code {
+  background: var(--surface);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.admin-password-reveal button {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admin-password-reveal button:hover {
+  box-shadow: 0 0 10px 1px var(--accent-glow);
+}

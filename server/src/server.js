@@ -10,11 +10,14 @@ const readingsRouter = require('./routes/readings');
 const summaryRouter = require('./routes/summary');
 const tanksRouter = require('./routes/tanks');
 const devicesRouter = require('./routes/devices');
+const usersRouter = require('./routes/users');
 const { requireAuth } = require('./authMiddleware');
+const { sweepExpiredSessions } = require('./auth');
 const simulator = require('./simulator');
 const alertEngine = require('./alertEngine');
 
 const PORT = process.env.PORT || 3000;
+const SESSION_SWEEP_INTERVAL_MS = 60 * 60 * 1000; // hourly
 // Set DEMO_MODE=0 once real meters/gateway are feeding /api/readings, so the
 // simulator stops generating synthetic data alongside real readings.
 const DEMO_MODE = process.env.DEMO_MODE !== '0';
@@ -34,6 +37,7 @@ app.use('/api/buildings', requireAuth, buildingsRouter);
 app.use('/api/summary', requireAuth, summaryRouter);
 app.use('/api/tanks', requireAuth, tanksRouter);
 app.use('/api/devices', requireAuth, devicesRouter);
+app.use('/api/users', requireAuth, usersRouter);
 app.use('/api/readings', readingsRouter);
 
 // Serve the dashboard frontend
@@ -46,4 +50,6 @@ app.listen(PORT, () => {
     console.log('Demo mode: simulating meter readings every 30s. Set DEMO_MODE=0 to disable once real meters are connected.');
   }
   alertEngine.start();
+  sweepExpiredSessions(); // clear anything left over from before this boot
+  setInterval(sweepExpiredSessions, SESSION_SWEEP_INTERVAL_MS);
 });

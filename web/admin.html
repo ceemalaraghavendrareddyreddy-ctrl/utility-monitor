@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Utility Monitor — Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="icon" href="icons/icon-192.png" />
+</head>
+<body>
+  <div id="loginScreen" class="login-screen">
+    <form id="loginForm" class="login-card">
+      <h1>Utility Monitor — Admin</h1>
+      <p class="login-sub">Sign in with an admin account to onboard customers.</p>
+      <label>
+        Username
+        <input
+          type="text"
+          id="loginUsername"
+          autocomplete="username"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          required
+        />
+      </label>
+      <label>
+        Password
+        <input type="password" id="loginPassword" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Sign in</button>
+      <p class="login-error" id="loginError" hidden></p>
+    </form>
+  </div>
+
+  <div id="appShell" hidden>
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1>Admin</h1>
+        <a class="admin-back-link" href="index.html">← Dashboard</a>
+      </div>
+      <div class="topbar-right">
+        <span class="username" id="usernameLabel"></span>
+        <button id="logoutBtn" class="logout-btn">Sign out</button>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <!-- Customers ---------------------------------------------------- -->
+      <section class="admin-panel">
+        <h2>Customers</h2>
+        <table class="admin-table" id="customerTable">
+          <thead><tr><th>Name</th><th>Slug</th><th>Alert email</th></tr></thead>
+          <tbody id="customerRows"></tbody>
+        </table>
+        <form id="customerForm" class="admin-form">
+          <input type="text" id="customerName" placeholder="Customer name" required />
+          <input type="text" id="customerSlug" placeholder="slug (optional)" />
+          <input type="email" id="customerAlertEmail" placeholder="alert email (optional)" />
+          <button type="submit">Add customer</button>
+        </form>
+        <p class="admin-status" id="customerStatus"></p>
+      </section>
+
+      <!-- Buildings ------------------------------------------------------ -->
+      <section class="admin-panel">
+        <h2>Buildings</h2>
+        <label class="admin-select-label">
+          For customer
+          <select id="buildingCustomerSelect"></select>
+        </label>
+        <table class="admin-table" id="buildingTable">
+          <thead>
+            <tr><th>Name</th><th>Energy kWh</th><th>Water L</th><th>Tank low %</th><th>Tank cap L</th><th></th></tr>
+          </thead>
+          <tbody id="buildingRows"></tbody>
+        </table>
+        <form id="buildingForm" class="admin-form">
+          <input type="text" id="buildingName" placeholder="Building name" required />
+          <input type="number" id="buildingEnergyThreshold" placeholder="Energy kWh" min="0" step="any" />
+          <input type="number" id="buildingWaterThreshold" placeholder="Water L" min="0" step="any" />
+          <input type="number" id="buildingTankLowPct" placeholder="Tank low %" min="0" max="100" step="any" />
+          <input type="number" id="buildingTankCapacity" placeholder="Tank capacity L" min="0" step="any" />
+          <button type="submit">Add building</button>
+        </form>
+        <p class="admin-status" id="buildingStatus"></p>
+      </section>
+
+      <!-- Users ------------------------------------------------------ -->
+      <section class="admin-panel">
+        <h2>Logins</h2>
+        <label class="admin-select-label">
+          For customer
+          <select id="userCustomerSelect"></select>
+        </label>
+        <table class="admin-table" id="userTable">
+          <thead><tr><th>Username</th><th>Role</th><th>Scope</th><th></th></tr></thead>
+          <tbody id="userRows"></tbody>
+        </table>
+        <form id="userForm" class="admin-form">
+          <input type="text" id="userUsername" placeholder="Username" required />
+          <select id="userRole">
+            <option value="owner">owner — whole portfolio, full access</option>
+            <option value="resident">resident — whole portfolio, read-only</option>
+            <option value="manager">manager — one building, full access</option>
+            <option value="admin">admin — every portfolio</option>
+          </select>
+          <select id="userBuildingSelect" hidden></select>
+          <button type="submit">Add login</button>
+        </form>
+        <p class="admin-status" id="userStatus"></p>
+        <div class="admin-password-reveal" id="userPasswordReveal" hidden>
+          <strong>New login created — this password is shown once:</strong>
+          <code id="userPasswordValue"></code>
+          <button type="button" id="userPasswordDismiss">I've saved it</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

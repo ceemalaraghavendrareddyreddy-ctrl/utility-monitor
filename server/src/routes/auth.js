@@ -30,7 +30,13 @@ router.post('/login', (req, res) => {
 
   const token = createSession(user);
   res.cookie('session', token, COOKIE_OPTIONS);
-  res.json({ ok: true, username: user.username, role: user.role, customerId: user.customer_id });
+  res.json({
+    ok: true,
+    username: user.username,
+    role: user.role,
+    customerId: user.customer_id,
+    buildingId: user.building_id,
+  });
 });
 
 // POST /api/auth/logout
@@ -46,11 +52,16 @@ router.get('/me', requireAuth, (req, res) => {
   const customer = req.user.customerId
     ? db.prepare('SELECT id, name FROM customers WHERE id = ?').get(req.user.customerId)
     : null;
+  const building = req.user.buildingId
+    ? db.prepare('SELECT id, name FROM buildings WHERE id = ?').get(req.user.buildingId)
+    : null;
   res.json({
     username: req.user.username,
     role: req.user.role,
     customerId: req.user.customerId,
     customerName: customer ? customer.name : null,
+    buildingId: req.user.buildingId,
+    buildingName: building ? building.name : null,
   });
 });
 

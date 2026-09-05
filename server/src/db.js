@@ -1,19 +1,7 @@
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
-const { hashPassword } = require('./auth');
-
-// Readable-but-strong random password for first-run seeding: base32-ish
-// alphabet with no ambiguous characters (0/O, 1/l/I), easy to read off a
-// deploy log and type into a login form without transcription errors.
-function generatePassword(length = 12) {
-  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  const bytes = crypto.randomBytes(length);
-  let out = '';
-  for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
-  return out;
-}
+const { hashPassword, generatePassword } = require('./auth');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -39,7 +27,8 @@ function transaction(fn) {
 
 // NOTE: this CHECK constraint (and the buildings columns below) only apply
 // to a freshly-created database. If you're upgrading a database created
-// before tank-level monitoring or the customers layer were added, delete
+// before tank-level monitoring, the customers layer, or the manager/resident
+// roles (users.building_id, the wider role CHECK) were added, delete
 // server/data/ and let it re-seed — SQLite can't alter a CHECK constraint or
 // add a NOT NULL foreign key column on an existing table, and this is still
 // demo/prototype data, not something to migrate in place.
@@ -63,13 +52,23 @@ db.exec(`
   -- exactly one customer_id regardless of what a request asks for — see
   -- customerScope.js. Passwords are scrypt-hashed (see auth.js), never
   -- stored in plaintext.
+  --
+  -- Four roles, two independent axes (scope x write access):
+  --   admin    - every portfolio, full read/write
+  --   owner    - one customer's whole portfolio, full read/write
+  --   manager  - one building only (building_id set), full read/write on it
+  --   resident - one customer's whole portfolio, READ-ONLY (no thresholds,
+  --              no alert email, no device control)
+  -- building_id is only ever set for role='manager' — see customerScope.js
+  -- resolveBuildingRestriction().
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     customer_id INTEGER REFERENCES customers(id),
+    building_id INTEGER REFERENCES buildings(id),
     username TEXT NOT NULL UNIQUE,
     password_salt TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'owner')) DEFAULT 'owner'
+    role TEXT NOT NULL CHECK (role IN ('admin', 'owner', 'manager', 'resident')) DEFAULT 'owner'
   );
 
   CREATE TABLE IF NOT EXISTS buildings (
@@ -117,6 +116,23 @@ db.exec(`
     action TEXT NOT NULL,
     issued_at TEXT NOT NULL
   );
+
+  -- Login sessions, persisted so they survive a server restart and would be
+  -- shared correctly across multiple instances pointed at the same DB file
+  -- (see README "Next steps" — this replaced the old in-memory Map). Token
+  -- is the httpOnly cookie value; expired rows are swept lazily on lookup
+  -- (see auth.js) rather than needing a background job.
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    username TEXT NOT NULL,
+    role TEXT NOT NULL,
+    customer_id INTEGER,
+    building_id INTEGER,
+    expires_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at);
 `);
 
 // Seed two customers once: the original 5-building community, plus a second

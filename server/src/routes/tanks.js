@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { resolveCustomerId } = require('../customerScope');
+const { resolveCustomerId, resolveBuildingRestriction } = require('../customerScope');
 
 const router = express.Router();
 
@@ -13,7 +13,10 @@ const LEAK_RATE_PCT_PER_MIN = 2;
 // alert per building, for one customer's portfolio
 router.get('/', (req, res) => {
   const customerId = resolveCustomerId(req);
-  const buildings = db.prepare('SELECT * FROM buildings WHERE customer_id = ? ORDER BY id').all(customerId);
+  const buildingRestriction = resolveBuildingRestriction(req);
+  const buildings = buildingRestriction
+    ? db.prepare('SELECT * FROM buildings WHERE customer_id = ? AND id = ? ORDER BY id').all(customerId, buildingRestriction)
+    : db.prepare('SELECT * FROM buildings WHERE customer_id = ? ORDER BY id').all(customerId);
 
   const recentReadings = db.prepare(
     `SELECT value, timestamp FROM readings

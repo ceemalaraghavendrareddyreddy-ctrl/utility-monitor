@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { resolveCustomerId } = require('../customerScope');
+const { resolveCustomerId, resolveBuildingRestriction } = require('../customerScope');
 
 const router = express.Router();
 
@@ -10,18 +10,25 @@ const LEAK_RATE_PCT_PER_MIN = 2; // keep in sync with routes/tanks.js
 // the top of the dashboard
 router.get('/', (req, res) => {
   const customerId = resolveCustomerId(req);
+  const buildingRestriction = resolveBuildingRestriction(req);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+
+  // A manager is scoped to one building (resolveBuildingRestriction), so
+  // both queries below add "AND b.id = ?" for that role — same shape, just
+  // one more param — rather than a second near-duplicate query.
+  const buildingFilter = buildingRestriction ? 'AND b.id = ?' : '';
+  const buildingFilterArgs = buildingRestriction ? [buildingRestriction] : [];
 
   const totals = db
     .prepare(
       `SELECT r.reading_type, COALESCE(SUM(r.value), 0) AS total
        FROM readings r
        JOIN buildings b ON b.id = r.building_id
-       WHERE b.customer_id = ? AND r.timestamp >= ? AND r.reading_type IN ('energy', 'water')
+       WHERE b.customer_id = ? ${buildingFilter} AND r.timestamp >= ? AND r.reading_type IN ('energy', 'water')
        GROUP BY r.reading_type`
     )
-    .all(customerId, todayStart.toISOString());
+    .all(customerId, ...buildingFilterArgs, todayStart.toISOString());
 
   const energy = totals.find((t) => t.reading_type === 'energy')?.total || 0;
   const water = totals.find((t) => t.reading_type === 'water')?.total || 0;
@@ -33,10 +40,10 @@ router.get('/', (req, res) => {
               COALESCE(SUM(CASE WHEN r.reading_type = 'water' THEN r.value END), 0) AS water_today
        FROM buildings b
        LEFT JOIN readings r ON r.building_id = b.id AND r.timestamp >= ?
-       WHERE b.customer_id = ?
+       WHERE b.customer_id = ? ${buildingFilter}
        GROUP BY b.id`
     )
-    .all(todayStart.toISOString(), customerId);
+    .all(todayStart.toISOString(), customerId, ...buildingFilterArgs);
 
   const recentTankReadings = db.prepare(
     `SELECT value, timestamp FROM readings

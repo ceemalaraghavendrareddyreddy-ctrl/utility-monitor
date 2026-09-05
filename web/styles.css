@@ -1,11 +1,18 @@
 :root {
-  --bg: #f4f6f8;
+  /* "Radium" theme: a light surface with a glowing green accent (radium
+     salts glow pale green in the dark) standing in for the old blue.
+     --accent is the solid color used for text/borders/button fills (kept
+     dark enough for real contrast); --accent-glow is a brighter green used
+     ONLY in box-shadow/text-shadow "glow" effects, never as a text or fill
+     color itself, since it doesn't have the contrast for that. */
+  --bg: #f4f8f5;
   --surface: #ffffff;
-  --border: #e2e6ea;
+  --border: #e1e8e3;
   --text: #1a2027;
   --muted: #64707d;
-  --accent: #2563eb;
-  --accent-soft: #e8f0fe;
+  --accent: #16a34a;
+  --accent-soft: #e6f9ec;
+  --accent-glow: #4ade80;
   --energy: #f59e0b;
   --water: #0ea5e9;
   --alert-bg: #fef2f2;
@@ -93,6 +100,13 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
+  box-shadow: 0 0 0 rgba(74, 222, 128, 0); /* animatable base for the hover glow below */
+  transition: box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.login-card button[type="submit"]:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 0 16px 2px var(--accent-glow);
 }
 
 .login-error {
@@ -168,6 +182,22 @@ body {
 
 .install-btn:hover {
   filter: brightness(0.96);
+  box-shadow: 0 0 10px 1px var(--accent-glow);
+}
+
+.admin-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.admin-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .username {
@@ -188,6 +218,14 @@ body {
 
 .logout-btn:hover {
   border-color: var(--accent);
+}
+
+/* Same specificity trap as .login-screen[hidden] above: an author class's
+   `display` beats the UA stylesheet's `[hidden]` rule, so hiding this
+   section for manager/resident sessions (see app.js startApp) needs an
+   explicit override here. */
+.alert-settings[hidden] {
+  display: none;
 }
 
 .alert-settings {
@@ -240,7 +278,8 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--accent);
+  box-shadow: 0 0 6px 1px var(--accent-glow);
   display: inline-block;
 }
 
@@ -474,9 +513,10 @@ body {
 }
 
 .device-toggle.on {
-  background: #ecfdf5;
-  border-color: #86efac;
+  background: var(--accent-soft);
+  border-color: var(--accent);
   color: #15803d;
+  box-shadow: 0 0 8px 0 rgba(74, 222, 128, 0.35);
 }
 
 .device-toggle.off {
@@ -506,7 +546,9 @@ body {
     --border: #262d36;
     --text: #e8ecf1;
     --muted: #8b96a3;
-    --accent-soft: #1d2a44;
+    --accent: #22c55e;
+    --accent-soft: #123522;
+    --accent-glow: #4ade80;
     --alert-bg: #2a1616;
     --alert-border: #5c2626;
     --alert-text: #f87171;
@@ -514,7 +556,8 @@ body {
 
   .device-toggle.on {
     background: #113420;
-    border-color: #22c55e;
+    border-color: var(--accent);
     color: #4ade80;
+    box-shadow: 0 0 10px 0 rgba(74, 222, 128, 0.4);
   }
 }

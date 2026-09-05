@@ -21,6 +21,9 @@ router.get('/', requireAuth, (req, res) => {
     if (!building || building.customer_id !== req.user.customerId) {
       return res.status(404).json({ error: 'building not found' });
     }
+    if (req.user.role === 'manager' && buildingId !== req.user.buildingId) {
+      return res.status(404).json({ error: 'building not found' });
+    }
   }
 
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();

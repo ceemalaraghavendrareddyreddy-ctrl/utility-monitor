@@ -25,6 +25,12 @@ try {
 
 let customersById = {};
 let refreshTimer = null;
+// Set from /api/auth/me on login — governs what this session may see/do:
+// 'resident' is read-only (no alert-email field, no device toggle); a
+// 'manager' is scoped to one building server-side already, but also
+// doesn't manage the portfolio-wide alert-email setting (that's
+// admin/owner only) — see routes/customers.js.
+let currentRole = null;
 
 async function fetchJSON(url, options) {
   const res = await fetch(url, options);
@@ -216,6 +222,16 @@ function deviceBlock(device) {
   if (!device) return '';
   const isOn = device.status === 'on';
   const nextAction = isOn ? 'off' : 'on';
+  // A resident's session is read-only server-side (POST /api/devices/:id/command
+  // 403s for them regardless) — show the status without a clickable control
+  // rather than offering a button that will always fail.
+  if (currentRole === 'resident') {
+    return `
+      <div class="device-row">
+        <span class="device-name">${device.name}</span>
+        <span class="device-toggle ${isOn ? 'on' : 'off'}" aria-label="${isOn ? 'on' : 'off'}">${isOn ? 'ON' : 'OFF'}</span>
+      </div>`;
+  }
   return `
     <div class="device-row">
       <span class="device-name">${device.name}</span>
@@ -331,7 +347,20 @@ async function startApp() {
   }
 
   showApp();
-  usernameLabel.textContent = session.role === 'admin' ? `${session.username} (admin)` : session.username;
+  currentRole = session.role;
+  const roleSuffix =
+    session.role === 'admin'
+      ? ' (admin)'
+      : session.role === 'manager'
+        ? ` (manager — ${session.buildingName || 'one building'})`
+        : session.role === 'resident'
+          ? ' (read-only)'
+          : '';
+  usernameLabel.textContent = `${session.username}${roleSuffix}`;
+  document.getElementById('adminLink').hidden = session.role !== 'admin';
+  // Alert-email is a portfolio-wide setting — only admin/owner manage it;
+  // a manager is scoped to one building, a resident is read-only.
+  document.getElementById('alertSettings').hidden = !['admin', 'owner'].includes(session.role);
 
   try {
     await loadCustomers();

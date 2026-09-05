@@ -17,4 +17,13 @@ function resolveCustomerId(req) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-module.exports = { resolveCustomerId };
+// A 'manager' account is scoped to exactly one building within their
+// customer (see db.js users.building_id), not the whole portfolio like
+// owner/resident. Returns that building's id, or null for every other role
+// (nothing to restrict further beyond resolveCustomerId).
+function resolveBuildingRestriction(req) {
+  if (!req.user) throw new Error('resolveBuildingRestriction called without an authenticated req.user');
+  return req.user.role === 'manager' ? req.user.buildingId : null;
+}
+
+module.exports = { resolveCustomerId, resolveBuildingRestriction };

@@ -48,7 +48,7 @@ function inDrop(nx, ny) {
 }
 
 function makeIcon(size) {
-  const bg = [37, 99, 235]; // accent blue
+  const bg = [22, 163, 74]; // accent radium green (see web/styles.css --accent)
   const fg = [255, 255, 255];
   const raw = Buffer.alloc(size * (1 + size * 3)); // filter byte + RGB per row
   let offset = 0;
@@ -76,7 +76,7 @@ function makeIcon(size) {
       const ny = (y / size) * 2 - 1;
       const drop = inDrop(nx, ny);
 
-      const [r, g, b] = !inside ? [244, 246, 248] /* transparent-ish page bg */ : drop ? fg : bg;
+      const [r, g, b] = !inside ? [244, 248, 245] /* transparent-ish page bg, see web/styles.css --bg */ : drop ? fg : bg;
       raw[offset++] = r;
       raw[offset++] = g;
       raw[offset++] = b;
